@@ -1,0 +1,21 @@
+# ===== LLM & Agent 核心 =====
+openai>=1.50.0           # DeepSeek 兼容 OpenAI 格式
+langchain>=0.3.0         # Chain/Prompt/Tool 抽象
+langchain-openai>=0.2.0  # LangChain 的 OpenAI 集成（DeepSeek 也用这个）
+langgraph>=0.2.0         # StateGraph → ReAct Agent
+langchain-community>=0.3.0
+
+# ===== RAG 检索 =====
+chromadb>=0.5.0          # 本地向量数据库
+pypdf>=5.0.0             # PDF 解析
+tiktoken>=0.7.0          # Token 计数（分块用）
+sentence-transformers>=2.7.0  # 本地 embedding 模型（中文优化，免费）
+
+# ===== 工具 =====
+duckduckgo-search>=6.0.0 # 免费搜索引擎（无需 API Key）
+
+# ===== 前端 =====
+streamlit>=1.35.0        # 纯 Python Web 界面
+
+# ===== 工程 =====
+python-dotenv>=1.0.0     # .env 密钥管理

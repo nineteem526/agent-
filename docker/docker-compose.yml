@@ -1,0 +1,19 @@
+# docker-compose.yml — 一键启动
+# ==============================
+# 使用：docker-compose -f docker/docker-compose.yml up -d
+
+version: "3.8"
+
+services:
+  agent-app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8501:8501"
+    env_file:
+      - ../.env
+    volumes:
+      # 持久化向量数据库（重启不丢失）
+      - ../data:/app/data
+    restart: unless-stopped
