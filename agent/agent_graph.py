@@ -35,6 +35,9 @@ from .rag import (
 )
 from .memory import get_memory
 
+# 安全限制：工具调用最多连续重试几次
+MAX_TOOL_RETRIES = 3
+
 
 # ============================================================
 # State 定义 — Agent 的状态在节点间流转
@@ -43,9 +46,12 @@ class AgentState(TypedDict):
     """
     Agent 的状态快照。每次经过一个节点都可能被更新。
     messages: 消息历史（用 operator.add 累加，不是替换）
+    context: RAG 检索到的上下文
+    tool_retry_count: 工具调用连续失败次数（自纠错用）
     """
     messages: Annotated[List[BaseMessage], operator.add]
-    context: str  # RAG 检索到的上下文
+    context: str
+    tool_retry_count: int
 
 
 # ============================================================
@@ -89,6 +95,10 @@ def agent_node(state: AgentState) -> dict:
         system_prompt = (
             "你是一个智能助手，可以调用工具来完成任务。"
             "优先使用工具获取实时信息，再给出准确回答。"
+            "\n\n"
+            "【自纠错机制】如果工具调用失败，请分析错误原因，"
+            "尝试修正参数后重新调用。例如：表达式格式有误 → 修正格式重试；"
+            "搜索无结果 → 换更简洁的关键词重试。最多重试 3 次。"
         )
         from langchain_core.messages import SystemMessage
 
@@ -105,23 +115,22 @@ def agent_node(state: AgentState) -> dict:
 # ============================================================
 def tool_node(state: AgentState) -> dict:
     """
-    执行 LLM 要求的工具调用。
+    执行 LLM 要求的工具调用（带自纠错机制）。
 
-    面试考点：这就是 ReAct 中的 "Acting"
-    LLM 说"我要查天气"→ 这个节点真正执行 get_weather() → 把结果包装成 ToolMessage 返回
+    面试考点：这就是 ReAct 中的 "Acting" + 自纠错
 
-    流程：
-    1. 从最后一条 AI 消息中提取 tool_calls
-    2. 逐一执行工具
-    3. 把执行结果以 ToolMessage 形式追加到消息流
+    如果工具执行失败，返回包含修正建议的错误信息，
+    LLM 会在下一轮 agent_node 看到错误并尝试用不同参数重新调用。
     """
     messages = state["messages"]
     last_message = messages[-1]
+    retry_count = state.get("tool_retry_count", 0)
 
-    # 构建工具名 → 工具对象的映射
     tool_map = {tool.name: tool for tool in ALL_TOOLS}
 
     tool_messages = []
+    has_error = False
+
     for tool_call in last_message.tool_calls:
         tool_name = tool_call["name"]
         tool_args = tool_call["args"]
@@ -132,17 +141,31 @@ def tool_node(state: AgentState) -> dict:
             try:
                 result = tool_map[tool_name].invoke(tool_args)
                 print(f"📦 [Agent] 工具返回：{str(result)[:200]}...")
+                retry_count = 0
             except Exception as e:
-                result = f"工具执行出错：{str(e)}"
-                print(f"❌ [Agent] 工具出错：{e}")
+                has_error = True
+                retry_count += 1
+                result = (
+                    f"❌ 工具调用失败（第 {retry_count} 次）：{str(e)}\n"
+                    f"请分析错误原因，尝试修正参数后重新调用。"
+                    f"如果连续失败，请向用户如实说明情况。"
+                )
+                print(f"❌ [Agent] 工具出错：{e}（重试 {retry_count}）")
         else:
-            result = f"未知工具：{tool_name}"
+            has_error = True
+            result = (
+                f"❌ 未知工具：{tool_name}。"
+                f"可用工具：{', '.join(tool_map.keys())}。请使用正确的工具名重试。"
+            )
 
         tool_messages.append(
             ToolMessage(content=str(result), tool_call_id=tool_call["id"])
         )
 
-    return {"messages": tool_messages}
+    return {
+        "messages": tool_messages,
+        "tool_retry_count": retry_count,
+    }
 
 
 # ============================================================
@@ -153,11 +176,17 @@ def should_continue(state: AgentState) -> Literal["tools", "__end__"]:
     判断 Agent 下一步该走哪个节点。
     - 如果 LLM 的最后一条消息包含 tool_calls → 去执行工具
     - 如果没有 tool_calls → Agent 已经给出最终回答，结束
+    - 如果连续失败超过上限 → 强制结束，避免死循环
 
-    面试考点：这是 ReAct 循环的"终止条件"
+    面试考点：这是 ReAct 循环的"终止条件" + 安全熔断
     """
     messages = state["messages"]
     last_message = messages[-1]
+
+    retry_count = state.get("tool_retry_count", 0)
+    if retry_count >= MAX_TOOL_RETRIES:
+        print(f"🛑 [Agent] 工具连续失败 {retry_count} 次，强制终止")
+        return "__end__"
 
     if hasattr(last_message, "tool_calls") and last_message.tool_calls:
         return "tools"
@@ -274,6 +303,7 @@ def run_agent(
     initial_state = {
         "messages": [HumanMessage(content=user_input)],
         "context": context,
+        "tool_retry_count": 0,
     }
 
     # 3. 运行 Agent 图，直到结束
