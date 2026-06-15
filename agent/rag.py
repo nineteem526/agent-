@@ -23,14 +23,12 @@ from langchain_core.documents import Document
 # 首次使用会自动下载模型（约 400MB），之后完全离线。
 # 国内用户用 hf-mirror.com 镜像下载。
 
+# ============================================================
 # 设置 HuggingFace 镜像（国内访问更快）
-# 注意：如果镜像也连不上，RAG 功能会降级但 Agent 核心功能仍可用
-_MIRRORS = [
-    "https://hf-mirror.com",
-    "https://huggingface-mirror.com",
-]
-for mirror in _MIRRORS:
-    os.environ.setdefault("HF_ENDPOINT", mirror)
+# 注意：必须在 import sentence_transformers 之前设置
+# ============================================================
+os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
+os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "0"
 
 _embeddings = None  # 延迟初始化
 _rag_available = True  # 标记 RAG 是否可用

@@ -6,6 +6,8 @@ main.py — Streamlit 前端入口
 """
 
 import os
+os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
+
 import tempfile
 from pathlib import Path
 
@@ -100,12 +102,26 @@ with st.sidebar:
 
     st.divider()
 
+    st.divider()
+
     st.header("📊 状态")
     if not rag_status:
-        st.warning("⚠️ RAG 暂不可用（模型下载失败），Agent 工具调用正常")
+        st.warning("⚠️ RAG 未就绪")
+
+        if st.button("🔧 初始化 RAG（下载 embedding 模型）", type="primary"):
+            with st.spinner("正在下载 embedding 模型（约 400MB，仅首次需要）..."):
+                from agent.rag import get_embeddings
+                emb = get_embeddings()
+                if emb is not None:
+                    st.cache_resource.clear()
+                    st.success("✅ RAG 已就绪！现在可以上传文档了")
+                    st.rerun()
+                else:
+                    st.error("❌ 下载失败，请检查网络后重试")
         use_rag = False
     else:
         use_rag = st.toggle("启用 RAG 检索", value=True)
+        st.success("✅ RAG 已就绪")
     if st.button("🗑️ 清除对话记忆"):
         from agent.memory import get_memory
 
