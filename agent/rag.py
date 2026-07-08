@@ -10,6 +10,7 @@ agent/rag.py — RAG 检索增强生成系统
 """
 
 import os
+from pathlib import Path
 from typing import List, Tuple
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -52,15 +53,15 @@ def get_embeddings():
 
             from langchain_community.embeddings import HuggingFaceEmbeddings
 
-            print("📥 正在加载 embedding 模型...")
+            print("Loading embedding model...")
             _embeddings = HuggingFaceEmbeddings(
                 model_name="shibing624/text2vec-base-chinese",
             )
-            print("✅ Embedding 模型加载完成，RAG 已就绪")
+            print("Embedding model loaded, RAG ready")
         except Exception:
             _rag_available = False
-            print("⚠️  Embedding 模型下载失败（网络不通），RAG 暂不可用")
-            print("💡 Agent 工具调用（计算/搜索/时间）完全正常，继续使用")
+            print("Embedding model download failed, RAG not available")
+            print("Agent tools (calculator/search/time) still work normally")
             return None
     return _embeddings
 
@@ -86,7 +87,7 @@ def load_document(file_path: str) -> List[Document]:
         raise ValueError(f"不支持的文件格式：{file_path}。仅支持 PDF / TXT / MD。")
 
     docs = loader.load()
-    print(f"📄 已加载文档：{file_path}，共 {len(docs)} 页/段")
+    print(f"Loaded document: {file_path}, {len(docs)} pages/sections")
     return docs
 
 
@@ -110,7 +111,7 @@ def split_documents(
         separators=["\n\n", "\n", "。", "！", "？", "；", "，", " ", ""],
     )
     chunks = splitter.split_documents(docs)
-    print(f"✂️  已分块：{len(docs)} 个文档 → {len(chunks)} 个文本块")
+    print(f"Split: {len(docs)} docs -> {len(chunks)} chunks")
     return chunks
 
 
@@ -128,14 +129,14 @@ def create_vectorstore(
     """
     emb = get_embeddings()
     if emb is None:
-        print("❌ RAG 不可用：embedding 模型未加载，无法创建向量库")
+        print("RAG not available: embedding model not loaded, cannot create vectorstore")
         return None
     vectorstore = Chroma.from_documents(
         documents=chunks,
         embedding=emb,
         persist_directory=persist_dir,
     )
-    print(f"💾 已存入向量数据库：{len(chunks)} 条记录 → {persist_dir}")
+    print(f"Saved to vectorstore: {len(chunks)} records -> {persist_dir}")
     return vectorstore
 
 
@@ -177,6 +178,11 @@ def format_retrieved_context(results: List[Tuple[Document, float]]) -> str:
     parts = []
     for i, (doc, score) in enumerate(results, 1):
         page = doc.metadata.get("page", "未知")
-        parts.append(f"[来源{i} · 第{page}页 · 相关度{score:.2f}]\n{doc.page_content}")
+        source = doc.metadata.get("source", "未知文件")
+        source_name = Path(source).name if source != "未知文件" else source
+        parts.append(
+            f"[来源{i} · {source_name} · 第{page}页 · 相关度{score:.2f}]\n"
+            f"{doc.page_content}"
+        )
 
     return "\n\n---\n\n".join(parts)

@@ -36,9 +36,9 @@ def calculator(expression: str) -> str:
             "pow": pow,
         }
         result = eval(expression, {"__builtins__": {}}, allowed_names)
-        return f"✅ 计算结果：{result}"
+        return f"[OK] Calculation result: {result}"
     except Exception as e:
-        return f"❌ 计算出错：{str(e)}。请检查表达式格式。"
+        return f"[ERROR] Calculation error: {str(e)}. Please check the expression."
 
 
 # ============================================================
@@ -54,16 +54,16 @@ def web_search(query: str, max_results: int = 3) -> str:
         with DDGS() as ddgs:
             results = list(ddgs.text(query, max_results=max_results))
             if not results:
-                return f"🔍 未找到关于「{query}」的搜索结果。"
+                return f"[NOT FOUND] No results for '{query}'."
 
             formatted = []
             for i, r in enumerate(results, 1):
                 formatted.append(
                     f"{i}. {r['title']}\n   {r['body'][:200]}...\n   🔗 {r['href']}"
                 )
-            return "🔍 搜索结果：\n\n" + "\n\n".join(formatted)
+            return "[Search Results]:\n\n" + "\n\n".join(formatted)
     except Exception as e:
-        return f"❌ 搜索失败：{str(e)}"
+        return f"[ERROR] Search failed: {str(e)}"
 
 
 # ============================================================
@@ -78,7 +78,7 @@ def get_current_time() -> str:
 
     now = datetime.now()
     weekdays = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
-    return f"🕐 当前时间：{now.strftime('%Y年%m月%d日')} {weekdays[now.weekday()]} {now.strftime('%H:%M:%S')}"
+    return f"[Current Time] {now.strftime('%Y-%m-%d')} {weekdays[now.weekday()]} {now.strftime('%H:%M:%S')}"
 
 
 # ============================================================

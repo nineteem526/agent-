@@ -135,26 +135,26 @@ def tool_node(state: AgentState) -> dict:
         tool_name = tool_call["name"]
         tool_args = tool_call["args"]
 
-        print(f"🔧 [Agent] 调用工具：{tool_name}({tool_args})")
+        print(f"[Agent] calling tool: {tool_name}({tool_args})")
 
         if tool_name in tool_map:
             try:
                 result = tool_map[tool_name].invoke(tool_args)
-                print(f"📦 [Agent] 工具返回：{str(result)[:200]}...")
+                print(f"[Agent] tool result: {str(result)[:200]}...")
                 retry_count = 0
             except Exception as e:
                 has_error = True
                 retry_count += 1
                 result = (
-                    f"❌ 工具调用失败（第 {retry_count} 次）：{str(e)}\n"
+                    f"[ERROR] Tool call failed (attempt {retry_count}): {str(e)}\n"
                     f"请分析错误原因，尝试修正参数后重新调用。"
                     f"如果连续失败，请向用户如实说明情况。"
                 )
-                print(f"❌ [Agent] 工具出错：{e}（重试 {retry_count}）")
+                print(f"[Agent] tool error: {e} (retry {retry_count})")
         else:
             has_error = True
             result = (
-                f"❌ 未知工具：{tool_name}。"
+                f"[ERROR] Unknown tool: {tool_name}. "
                 f"可用工具：{', '.join(tool_map.keys())}。请使用正确的工具名重试。"
             )
 
@@ -185,7 +185,7 @@ def should_continue(state: AgentState) -> Literal["tools", "__end__"]:
 
     retry_count = state.get("tool_retry_count", 0)
     if retry_count >= MAX_TOOL_RETRIES:
-        print(f"🛑 [Agent] 工具连续失败 {retry_count} 次，强制终止")
+        print(f"[Agent] max retries ({retry_count}) reached, force stop")
         return "__end__"
 
     if hasattr(last_message, "tool_calls") and last_message.tool_calls:
@@ -255,15 +255,15 @@ def init_rag(knowledge_base_dir: str = "./data/chroma_db"):
     try:
         from .rag import is_rag_available
         if not is_rag_available():
-            print("⚠️  RAG 不可用（embedding 模型未下载），Agent 工具调用功能正常")
+            print("RAG not available (embedding model not downloaded), Agent tools still work")
             return
         _rag_vectorstore = load_vectorstore(knowledge_base_dir)
         if _rag_vectorstore is not None:
-            print(f"📚 RAG 已就绪，向量库路径：{knowledge_base_dir}")
+            print(f"RAG ready, vectorstore: {knowledge_base_dir}")
         else:
-            print("⚠️  RAG 向量库为空，上传文档后将自动创建")
+            print("RAG vectorstore empty, will auto-create on doc upload")
     except Exception as e:
-        print(f"⚠️  RAG 初始化跳过：{e}")
+        print(f"RAG init skipped: {e}")
 
 
 def run_agent(
@@ -294,9 +294,9 @@ def run_agent(
             results = retrieve(user_input, _rag_vectorstore, top_k=3)
             context = format_retrieved_context(results)
             if results:
-                print(f"📚 [RAG] 检索到 {len(results)} 条相关内容")
+                print(f"[RAG] retrieved {len(results)} chunks")
         except Exception as e:
-            print(f"⚠️  [RAG] 检索失败：{e}")
+            print(f"[RAG] search failed: {e}")
 
     # 2. 构建初始状态
     memory.add_user_message(user_input)
@@ -319,7 +319,7 @@ def run_agent(
         return answer
 
     except Exception as e:
-        error_msg = f"❌ Agent 运行出错：{str(e)}"
+        error_msg = f"[ERROR] Agent runtime error: {str(e)}"
         print(error_msg)
         return error_msg
 

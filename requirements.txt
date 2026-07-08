@@ -17,5 +17,10 @@ duckduckgo-search>=6.0.0 # 免费搜索引擎（无需 API Key）
 # ===== 前端 =====
 streamlit>=1.35.0        # 纯 Python Web 界面
 
+# ===== API =====
+fastapi>=0.110.0         # RESTful API 框架
+uvicorn>=0.29.0          # ASGI 服务器
+python-multipart>=0.0.9  # FastAPI 文件上传支持
+
 # ===== 工程 =====
 python-dotenv>=1.0.0     # .env 密钥管理

@@ -66,11 +66,17 @@ cp .env.example .env
 
 ### 3. 启动
 
+**Streamlit 前端**（对话界面）：
 ```bash
 streamlit run main.py
+# 浏览器打开 http://localhost:8501
 ```
 
-浏览器打开 `http://localhost:8501`
+**FastAPI 接口**（程序化调用 / 集成其他服务）：
+```bash
+uvicorn api:app --reload --host 0.0.0.0 --port 8000
+# Swagger 文档 http://localhost:8000/docs
+```
 
 ### Docker 一键部署
 
@@ -98,6 +104,7 @@ docker run -p 8501:8501 --env-file .env agent-app
 ```
 agent-project/
 ├── main.py                  # Streamlit 前端入口
+├── api.py                   # FastAPI REST 接口
 ├── requirements.txt         # Python 依赖
 ├── .env.example             # API Key 模板
 │
@@ -119,7 +126,7 @@ agent-project/
 
 ## 🛠️ 技术栈
 
-`Python` `LangChain` `LangGraph` `DeepSeek API` `Streamlit` `ChromaDB` `Docker` `Function Calling` `RAG` `ReAct`
+`Python` `LangChain` `LangGraph` `DeepSeek API` `Streamlit` `FastAPI` `ChromaDB` `Docker` `Function Calling` `RAG` `ReAct`
 
 ---
 
@@ -131,6 +138,25 @@ agent-project/
 - **ReAct 循环**: `agent_graph.py` — State / Node / Edge 三要素，`should_continue` 终止条件
 - **对话记忆**: `memory.py` — MemorySaver + 滑动窗口（max_turns=20）
 - **RAG 管线**: `rag.py` — 文档加载→分块→向量化→检索→拼接 Prompt
+- **RESTful API**: `api.py` — FastAPI 接口，支持 /chat、/documents/upload、/health
+
+---
+
+## 🔌 API 速览
+
+```bash
+# 对话
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "帮我算 sqrt(144) * 3"}'
+
+# 上传文档
+curl -X POST http://localhost:8000/documents/upload \
+  -F "files=@report.pdf"
+
+# 健康检查
+curl http://localhost:8000/health
+```
 
 ---
 
